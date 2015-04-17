@@ -22,8 +22,8 @@ function MMOServer() {
     var rockets = {}; // Associative array for rockets, indexed via timestamp
     var sockets = {}; // Associative array for sockets, indexed via player ID
     var players = {}; // Associative array for players, indexed via socket ID
-    var nimbuses = [];
-    var cells = [];
+    var shipAoiCaches = {};
+    var cells = new Array(Config.GRID_WIDTH * Config.GRID_HEIGHT);
 
     /*
      * private method: broadcast(msg)
@@ -93,12 +93,12 @@ function MMOServer() {
         var i;
         var  j;
         for (i in ships) {
-            var cellBeforeMove = getCellByXy(ships[i].x, ships[i].y);
+            var cellBeforeMove = getCellIndexByXy(ships[i].x, ships[i].y);
             ships[i].moveOneStep();
-            var cellAfterMove = getCellByXy(ships[i].x, ships[i].y);
+            var cellAfterMove = getCellIndexByXy(ships[i].x, ships[i].y);
             //if ship change cell then update group
             if (cellAfterMove !== cellBeforeMove) {
-                changeCell(ships[i], cellBeforeMove, cellAfterMove);
+                changeShipCell(i, cellBeforeMove, cellAfterMove);
             }
         }
         for (i in rockets) {
@@ -298,10 +298,6 @@ function MMOServer() {
             // cal the game loop
             setInterval(function() {gameLoop();}, 1000/Config.FRAME_RATE); 
 
-            //precalculate AOI
-            preCalculateAoI();
-            console.log(nimbuses);
-
             // Standard code to start the server and listen
             // for connection
             var app = express();
@@ -319,20 +315,76 @@ function MMOServer() {
     }
 
     //helper methods
-    var getCellByXy = function (x, y) {
+    var getCellIndexByXy = function (x, y) {
         var row = Math.floor(y / (Config.HEIGHT / Config.GRID_HEIGHT));
         var col = Math.floor(x / (Config.WIDTH / Config.GRID_WIDTH));
-        return getCell(row, col);
+        return getCellIndex(row, col);
     }
 
-    var getCell = function (row, col) {
-        return cells[row * Config.GRID_WIDTH + col];
+    var getCellIndex = function (row, col) {
+        return row * Config.GRID_WIDTH + col;
     }
 
-    var changeCell = function(ship, oldCell, newCell) {
+    var changeShipCell = function(pid, oldCellIndex, newCellIndex) {
         //unsub old cell
+        //check if is there pre-calculated data for AOI
+        var oldAoiCells = getShipAoi(oldCellIndex);
+        for (var i = oldAoiCells.length - 1; i >= 0; i--) {
+            var cellIndex = aoiCells[i];
+            var cell = cells[cellIndex];
+            for (var j = cell.length - 1; j >= 0; j--) {
+                if (cell[j] === pid) {
+                    delete cell[j];
+                }
+            };
+        };
 
         //sub new cell
+        var newAoiCells = getShipAoi(newCellIndex);
+        for (var i = newAoiCells.length - 1; i >= 0; i--) {
+            var cellIndex = newAoiCells[i];
+            var cell = cells(cellIndex);
+            cell.push(pid);
+        };
+    }
+
+    var getShipAoi = function (cellIndex) {
+        if (aoiCaches[oldCellIndex]) {
+            return aoiCaches[oldCellIndex];
+        } else {
+            var results = [];
+            var row = getRowFromCellIndex(cellIndex);
+            var col = getColFromCellIndex(cellIndex);
+            var halfHeight = Math.floor(Config.AOI_CROSS_SIZE1);
+            var halfWidth = Math.floor(Config.AOI_CROSS_SIZE2);
+            var i,j;
+            for (i = row - halfCrossHeight; i <= row + halfCrossHeight; i++) {
+                for (j = col - halfCrossWidth; j <= col + halfCrossWidth; j++) {
+                    if (i >= 0 && i < Config.GRID_HEIGHT && j >= 0 && j < Config.GRID_WIDTH) {
+                        results.push(getCellIndex(i, j));
+                    }
+                }
+            }
+            halfHeight = Math.floor(Config.AOI_CROSS_SIZE1);
+            halfWidth = Math.floor(Config.AOI_CROSS_SIZE2);
+            for (i = row - halfCrossHeight; i <= row + halfCrossHeight; i++) {
+                for (j = col - halfCrossWidth; j <= col + halfCrossWidth; j++) {
+                    if (i >= 0 && i < Config.GRID_HEIGHT && j >= 0 && j < Config.GRID_WIDTH) {
+                        results.push(getCellIndex(i, j));
+                    }
+                }
+            }
+            shipAoiCaches[cellIndex] = results;
+            return results;
+        }
+    }
+
+    var getRowFromCellIndex = function(cellIndex) {
+        return Math.floor(cellIndex / Config.GRID_WIDTH);
+    }
+
+    var getColFromCellIndex = function(cellIndex) {
+        return cellIndex % Config.GRID_HEIGHT;
     }
 }
 
