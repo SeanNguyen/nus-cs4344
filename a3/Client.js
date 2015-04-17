@@ -240,14 +240,13 @@ function Client() {
         context.beginPath();
         //10px per grid
         var i;
-        var gridSize = 20;
-        for (i = 1; i < 70; i++) {
-            context.moveTo(0, i * gridSize);
-            context.lineTo(Config.WIDTH, i * gridSize);
+        for (i = 1; i < Config.GRID_WIDTH; i++) {
+            context.moveTo(0, i * Config.WIDTH / Config.GRID_WIDTH);
+            context.lineTo(Config.WIDTH, i * Config.WIDTH / Config.GRID_WIDTH);
         }
         for (i = 1; i < 100; i++) {
-            context.moveTo(i * gridSize, 0);
-            context.lineTo(i * gridSize, Config.HEIGHT);
+            context.moveTo(i * Config.HEIGHT / Config.GRID_HEIGHT, 0);
+            context.lineTo(i * Config.HEIGHT / Config.GRID_HEIGHT, Config.HEIGHT);
         }
         context.strokeStyle="#d3edce";
         context.stroke();
