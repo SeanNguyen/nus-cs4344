@@ -22,6 +22,8 @@ function MMOServer() {
     var rockets = {}; // Associative array for rockets, indexed via timestamp
     var sockets = {}; // Associative array for sockets, indexed via player ID
     var players = {}; // Associative array for players, indexed via socket ID
+    var nimbuses = [];
+    var cells = [];
 
     /*
      * private method: broadcast(msg)
@@ -91,7 +93,13 @@ function MMOServer() {
         var i;
         var  j;
         for (i in ships) {
+            var cellBeforeMove = getCellByXy(ships[i].x, ships[i].y);
             ships[i].moveOneStep();
+            var cellAfterMove = getCellByXy(ships[i].x, ships[i].y);
+            //if ship change cell then update group
+            if (cellAfterMove !== cellBeforeMove) {
+                changeCell(ships[i], cellBeforeMove, cellAfterMove);
+            }
         }
         for (i in rockets) {
             rockets[i].moveOneStep();
@@ -112,6 +120,49 @@ function MMOServer() {
                         }
                     } 
                 }
+            }
+        }
+    }
+
+    //Grid system: 70x100 saved in 1D array
+    var preCalculateAoI = function() {
+        var i, j;
+        for (i = 0; i < Config.GRID_HEIGHT; i++) {
+            for (j = 0; j < Config.GRID_WIDTH; j++) {
+                //calculate
+                var nimbus = [];
+                var row, col;
+                //set area 5x5 around the considered grid
+                var halfSquare = Math.floor(Config.AOI_SQUARE_SIZE / 2);
+                for (row = i - halfSquare; row <= i + halfSquare; row++) {
+                    for (col = j - halfSquare; col <= j + halfSquare; col++) {
+                        if (row >= 0 && row < Config.GRID_HEIGHT && col >= 0 && col < Config.GRID_WIDTH) {
+                            nimbus.push({row: row, col: col});
+                        }
+                    }
+                }
+                //set area 3x31
+                var halfCrossHeight = Math.floor(Config.AOI_CROSS_SIZE1);
+                var halfCrossWidth = Math.floor(Config.AOI_CROSS_SIZE2);
+                for (row = i - halfCrossHeight; row <= i + halfCrossHeight; row++) {
+                    for (col = j - halfCrossWidth; col <= j + halfCrossWidth; col++) {
+                        if (row >= 0 && row < Config.GRID_HEIGHT && col >= 0 && col < Config.GRID_WIDTH) {
+                            nimbus.push({row: row, col: col});
+                        }
+                    }
+                }
+                //set area 31x3
+                var halfCrossHeight = Math.floor(Config.AOI_CROSS_SIZE2);
+                var halfCrossWidth = Math.floor(Config.AOI_CROSS_SIZE1);
+                for (row = i - halfCrossHeight; row <= i + halfCrossHeight; row++) {
+                    for (col = j - halfCrossWidth; col <= j + halfCrossWidth; col++) {
+                        if (row >= 0 && row < Config.GRID_HEIGHT && col >= 0 && col < Config.GRID_WIDTH) {
+                            nimbus.push({row: row, col: col});
+                        }
+                    }
+                }
+                //add to communicationGroups
+                nimbuses.push(nimbus);
             }
         }
     }
@@ -247,6 +298,10 @@ function MMOServer() {
             // cal the game loop
             setInterval(function() {gameLoop();}, 1000/Config.FRAME_RATE); 
 
+            //precalculate AOI
+            preCalculateAoI();
+            console.log(nimbuses);
+
             // Standard code to start the server and listen
             // for connection
             var app = express();
@@ -261,6 +316,23 @@ function MMOServer() {
             console.log("Cannot listen to " + Config.PORT);
             console.log("Error: " + e);
         }
+    }
+
+    //helper methods
+    var getCellByXy = function (x, y) {
+        var row = Math.floor(y / (Config.HEIGHT / Config.GRID_HEIGHT));
+        var col = Math.floor(x / (Config.WIDTH / Config.GRID_WIDTH));
+        return getCell(row, col);
+    }
+
+    var getCell = function (row, col) {
+        return cells[row * Config.GRID_WIDTH + col];
+    }
+
+    var changeCell = function(ship, oldCell, newCell) {
+        //unsub old cell
+
+        //sub new cell
     }
 }
 
