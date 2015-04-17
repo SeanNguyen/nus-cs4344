@@ -140,7 +140,7 @@ function Client() {
         // arrow keys and space bar.
         var c = document.getElementById("canvas");
         c.height = Config.HEIGHT;
-        c.width= Config.WIDTH;
+        c.width= Config.WIDTH;canvas
 
         document.addEventListener("keydown", function(e) {
             if (myShip === undefined) {
@@ -233,6 +233,24 @@ function Client() {
 
         context.fillStyle = "#000000";
         context.fillRect(0, 0, Config.WIDTH, Config.HEIGHT);
+
+        //TEST
+        //draw grid
+        var context = c.getContext('2d');
+        context.beginPath();
+        //10px per grid
+        var i;
+        var gridSize = 20;
+        for (i = 1; i < 70; i++) {
+            context.moveTo(0, i * gridSize);
+            context.lineTo(Config.WIDTH, i * gridSize);
+        }
+        for (i = 1; i < 100; i++) {
+            context.moveTo(i * gridSize, 0);
+            context.lineTo(i * gridSize, Config.HEIGHT);
+        }
+        context.strokeStyle="#d3edce";
+        context.stroke();
 
         // Draw the ship
         for (var i in ships) {
