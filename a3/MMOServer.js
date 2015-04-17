@@ -176,6 +176,7 @@ function MMOServer() {
      */
     this.start = function () {
         try {
+            initCells();
             var express = require('express');
             var http = require('http');
             var sockjs = require('sockjs');
@@ -315,6 +316,12 @@ function MMOServer() {
     }
 
     //helper methods
+    var initCells = function() {
+        for (var i = cells.length - 1; i >= 0; i--) {
+            cells[i] = [];
+        };
+    }
+
     var getCellIndexByXy = function (x, y) {
         var row = Math.floor(y / (Config.HEIGHT / Config.GRID_HEIGHT));
         var col = Math.floor(x / (Config.WIDTH / Config.GRID_WIDTH));
@@ -330,7 +337,7 @@ function MMOServer() {
         //check if is there pre-calculated data for AOI
         var oldAoiCells = getShipAoi(oldCellIndex);
         for (var i = oldAoiCells.length - 1; i >= 0; i--) {
-            var cellIndex = aoiCells[i];
+            var cellIndex = oldAoiCells[i];
             var cell = cells[cellIndex];
             for (var j = cell.length - 1; j >= 0; j--) {
                 if (cell[j] === pid) {
@@ -343,14 +350,14 @@ function MMOServer() {
         var newAoiCells = getShipAoi(newCellIndex);
         for (var i = newAoiCells.length - 1; i >= 0; i--) {
             var cellIndex = newAoiCells[i];
-            var cell = cells(cellIndex);
+            var cell = cells[cellIndex];
             cell.push(pid);
         };
     }
 
     var getShipAoi = function (cellIndex) {
-        if (aoiCaches[oldCellIndex]) {
-            return aoiCaches[oldCellIndex];
+        if (shipAoiCaches[cellIndex]) {
+            return shipAoiCaches[cellIndex];
         } else {
             var results = [];
             var row = getRowFromCellIndex(cellIndex);
@@ -358,8 +365,8 @@ function MMOServer() {
             var halfHeight = Math.floor(Config.AOI_CROSS_SIZE1);
             var halfWidth = Math.floor(Config.AOI_CROSS_SIZE2);
             var i,j;
-            for (i = row - halfCrossHeight; i <= row + halfCrossHeight; i++) {
-                for (j = col - halfCrossWidth; j <= col + halfCrossWidth; j++) {
+            for (i = row - halfHeight; i <= row + halfHeight; i++) {
+                for (j = col - halfWidth; j <= col + halfWidth; j++) {
                     if (i >= 0 && i < Config.GRID_HEIGHT && j >= 0 && j < Config.GRID_WIDTH) {
                         results.push(getCellIndex(i, j));
                     }
@@ -367,8 +374,8 @@ function MMOServer() {
             }
             halfHeight = Math.floor(Config.AOI_CROSS_SIZE1);
             halfWidth = Math.floor(Config.AOI_CROSS_SIZE2);
-            for (i = row - halfCrossHeight; i <= row + halfCrossHeight; i++) {
-                for (j = col - halfCrossWidth; j <= col + halfCrossWidth; j++) {
+            for (i = row - halfHeight; i <= row + halfHeight; i++) {
+                for (j = col - halfWidth; j <= col + halfWidth; j++) {
                     if (i >= 0 && i < Config.GRID_HEIGHT && j >= 0 && j < Config.GRID_WIDTH) {
                         results.push(getCellIndex(i, j));
                     }
