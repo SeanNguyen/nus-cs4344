@@ -232,9 +232,7 @@ function MMOServer() {
                             var subscribles = cells[cellIndex];
                             for (var i = 0; i < subscribles.length; i++) {
                                 var id = subscribles[i];
-                                console.log(id);
                                 if (id !== pid) {
-                                    console.log(id);
                                     unicast(sockets[id], {
                                             type:"turn",
                                             id: pid, 
@@ -255,14 +253,27 @@ function MMOServer() {
                             r.init(message.x, message.y, message.dir, pid);
                             var rocketId = new Date().getTime();
                             rockets[rocketId] = r;
-                            broadcast({
-                                type:"fire",
-                                ship: pid,
-                                rocket: rocketId,
-                                x: message.x,
-                                y: message.y,
-                                dir: message.dir
-                            });
+                            // broadcast({
+                            //     type:"fire",
+                            //     ship: pid,
+                            //     rocket: rocketId,
+                            //     x: message.x,
+                            //     y: message.y,
+                            //     dir: message.dir
+                            // });
+                            var cellIndex = getCellIndexByXy(message.x, message.y);
+                            var subscribles = cells[cellIndex];
+                            for (var i = 0; i < subscribles.length; i++) {
+                                var id = subscribles[i];
+                                unicast(sockets[id], {
+                                        type:"fire",
+                                        ship: pid,
+                                        rocket: rocketId,
+                                        x: message.x,
+                                        y: message.y,
+                                        dir: message.dir
+                                    });
+                            }
                             break;
                             
                         default:
