@@ -258,7 +258,7 @@ function MMOServer() {
                             break;
 
                         case "turn":
-                            // A player has turned.  Tell everyone else.
+                            // A player has turned. Tell all the one who care
                             var pid = players[conn.id].pid;
                             ships[pid].jumpTo(message.x, message.y);
                             ships[pid].turn(message.dir);
@@ -269,6 +269,21 @@ function MMOServer() {
                                 y: message.y, 
                                 dir: message.dir
                             }, pid);
+
+                            // var cellIndex = getCellIndexByXy(message.x, message.y);
+                            // var cell = cells[cellIndex];
+                            // for (var id in cell) {
+                            //     if (id != undefined && id != 0 && id !== pid) {
+                            //         console.log(id);
+                            //         unicast(sockets[id], {
+                            //                 type:"turn",
+                            //                 id: id, 
+                            //                 x: ships[id].x, 
+                            //                 y: ships[id].y, 
+                            //                 dir: ships[id].dir});
+                            //     }
+                            // }
+
                             break;
 
                         case "fire":
@@ -356,14 +371,18 @@ function MMOServer() {
     }
 
     var getShipAoi = function (cellIndex) {
+        console.log("CELL INDEX: " + cellIndex);
         if (shipAoiCaches[cellIndex]) {
+            console.log(shipAoiCaches[cellIndex]);
             return shipAoiCaches[cellIndex];
         } else {
             var results = [];
             var row = getRowFromCellIndex(cellIndex);
+            console.log("ROW: " + row);
             var col = getColFromCellIndex(cellIndex);
-            var halfHeight = Math.floor(Config.AOI_CROSS_SIZE1);
-            var halfWidth = Math.floor(Config.AOI_CROSS_SIZE2);
+            console.log("COL: " + col);
+            var halfHeight = Math.floor(Config.AOI_CROSS_SIZE1 / 2);
+            var halfWidth = Math.floor(Config.AOI_CROSS_SIZE2 / 2);
             var i,j;
             for (i = row - halfHeight; i <= row + halfHeight; i++) {
                 for (j = col - halfWidth; j <= col + halfWidth; j++) {
@@ -372,16 +391,18 @@ function MMOServer() {
                     }
                 }
             }
-            halfHeight = Math.floor(Config.AOI_CROSS_SIZE1);
-            halfWidth = Math.floor(Config.AOI_CROSS_SIZE2);
+            halfHeight = Math.floor(Config.AOI_CROSS_SIZE2 / 2);
+            halfWidth = Math.floor(Config.AOI_CROSS_SIZE1 / 2);
             for (i = row - halfHeight; i <= row + halfHeight; i++) {
                 for (j = col - halfWidth; j <= col + halfWidth; j++) {
-                    if (i >= 0 && i < Config.GRID_HEIGHT && j >= 0 && j < Config.GRID_WIDTH) {
+                    if (i >= 0 && i < Config.GRID_HEIGHT && j >= 0 && j < Config.GRID_WIDTH
+                        && (i < row - halfWidth || i > row + halfWidth || j < col - halfHeight || j > col + halfHeight)) {
                         results.push(getCellIndex(i, j));
                     }
                 }
             }
             shipAoiCaches[cellIndex] = results;
+            console.log(shipAoiCaches[cellIndex]);
             return results;
         }
     }
@@ -391,7 +412,7 @@ function MMOServer() {
     }
 
     var getColFromCellIndex = function(cellIndex) {
-        return cellIndex % Config.GRID_HEIGHT;
+        return cellIndex % Config.GRID_WIDTH;
     }
 }
 
