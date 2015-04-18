@@ -103,7 +103,9 @@ function MMOServer() {
             }
         }
         for (i in rockets) {
+            var cellBeforeMove = getCellIndexByXy(rockets[i].x, rockets[i].y);
             rockets[i].moveOneStep();
+            var cellAfterMove = getCellIndexByXy(rockets[i].x, rockets[i].y);
             // remove out of bounds rocket
             if (rockets[i].x < 0 || rockets[i].x > Config.WIDTH ||
                 rockets[i].y < 0 || rockets[i].y > Config.HEIGHT) {
@@ -120,6 +122,11 @@ function MMOServer() {
                             delete rockets[i];
                         }
                     } 
+                }
+                //if rocket change cell then update group
+                if (cellAfterMove !== cellBeforeMove && rockets[i]) {
+                    //console.log("PID: " + i + " OLD CELL: " + cellBeforeMove + " NEW CELL: " + cellAfterMove);
+                    changeRocketCell(i, cellBeforeMove, cellAfterMove);
                 }
             }
         }
@@ -343,6 +350,46 @@ function MMOServer() {
             cell.push(pid);
             //console.log('NEW CELL AFTER: ' + cell);
         }
+
+        //notify sub of new aoi
+        var oldSubscribers = getAllSubscribersOfAoi(oldAoiCells);
+        var newSubscribers = getAllSubscribersOfAoi(newAoiCells);
+        var differentSubscribers = getDiffInSubscribers(oldSubscribers, newSubscribers);
+        for (var i = 0; i < differentSubscribers.length; i++) {
+            var id = differentSubscribers[i];
+            //console.log("NOTIFIED ID: " + id);
+            if (id !== pid) {
+                unicast(sockets[id], {
+                        type:"turn",
+                        id: pid, 
+                        x: ships[pid].x, 
+                        y: ships[pid].y, 
+                        dir: ships[pid].dir});
+            }
+        }
+    }
+
+    var changeRocketCell = function(pid, oldCellIndex, newCellIndex) {
+        var oldAoiCells = getShipAoi(oldCellIndex);
+        var newAoiCells = getShipAoi(newCellIndex);
+        //notify sub of new aoi
+        var oldSubscribers = getAllSubscribersOfAoi(oldAoiCells);
+        var newSubscribers = getAllSubscribersOfAoi(newAoiCells);
+        var differentSubscribers = getDiffInSubscribers(oldSubscribers, newSubscribers);
+        for (var i = 0; i < differentSubscribers.length; i++) {
+            var id = differentSubscribers[i];
+            console.log("NOTIFIED ID: " + id);
+            if (id !== pid) {
+                unicast(sockets[id], {
+                    type:"fire",
+                    ship: rockets[pid].from,
+                    rocket: pid,
+                    x: rockets[pid].x,
+                    y: rockets[pid].y,
+                    dir: rockets[pid].dir
+                });
+            }
+        }
     }
 
     var getShipAoi = function (cellIndex) {
@@ -389,6 +436,47 @@ function MMOServer() {
     var getColFromCellIndex = function(cellIndex) {
         return cellIndex % Config.GRID_WIDTH;
     }
+
+    var getAllSubscribersOfAoi = function(cellIndexes) {
+        var result = [];
+        for (var i = 0; i < cellIndexes.length; i++) {
+            var cellIndex = cellIndexes[i];
+            var cell = cells[cellIndex];
+            result = arrayUnique(result.concat(cell));
+        };
+        return result;
+    }
+
+    var getDiffInSubscribers = function(oldSubs, newSubs) {
+        //console.log("OLD SUB: " + oldSubs);
+        //console.log("NEW SUB: " + newSubs);
+        var result = [];
+        for (var i = 0; i < newSubs.length; i++) {
+            var isDiff = true;
+            for (var j = 0; j < oldSubs.length; j++) {
+                if (oldSubs[j] === newSubs[i]) {
+                    isDiff = false;
+                    break;
+                }
+            };
+            if (isDiff) {
+                result.push(newSubs[i]);
+            }
+        };
+        //console.log("DIFF: " + result);
+        return result;
+    }
+
+    var arrayUnique = function(array) {
+        var a = array.concat();
+        for(var i=0; i<a.length; ++i) {
+            for(var j=i+1; j<a.length; ++j) {
+                if(a[i] === a[j])
+                    a.splice(j--, 1);
+            }
+        }
+        return a;
+    };
 }
 
 // This will auto run after this script is loaded
