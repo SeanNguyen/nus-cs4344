@@ -365,29 +365,35 @@ function MMOServer() {
         }
 
         //notify sub of new aoi
-        var oldSubscribers = getAllSubscribersOfAoi(oldAoiCells);
-        var newSubscribers = getAllSubscribersOfAoi(newAoiCells);
-        var differentSubscribers = getDiffInSubscribers(oldSubscribers, newSubscribers);
-        for (var i = 0; i < differentSubscribers.length; i++) {
-            var id = differentSubscribers[i];
-            //console.log("NOTIFIED ID: " + id);
+        //var oldSubscribers = getAllSubscribersOfAoi(oldAoiCells);
+         var newSubscribers = getAllSubscribersOfAoi(newAoiCells);
+        // var differentSubscribers = getDiffInSubscribers(oldSubscribers, newSubscribers);
+        for (var i = 0; i < newSubscribers.length; i++) {
+            var id = newSubscribers[i];
             if (id !== pid) {
                 unicast(sockets[id], {
-                        type:"turn",
-                        id: pid, 
-                        x: ships[pid].x, 
-                        y: ships[pid].y, 
-                        dir: ships[pid].dir});
+                    type:"turn",
+                    id: pid, 
+                    x: ships[pid].x, 
+                    y: ships[pid].y, 
+                    dir: ships[pid].dir});
             }
         }
 
         //send aoi data to client to visualize
+
+        var aoiToSend = [];
+        for (var i = 0; i < cells.length; i++) {
+            if (cells[i].length > 0) {
+                aoiToSend.push(i);
+            }
+        };
         for (var i = 0; i < aoiRequest.length; i++) {
             if (aoiRequest[i] == pid) {
                 //console.log("AOI send to: " + pid);
                 unicast(sockets[pid], {
                     type:"aoi",
-                    cellIndexes: newAoiCells
+                    cellIndexes: aoiToSend
                 });
                 break;
             }
@@ -399,12 +405,12 @@ function MMOServer() {
         var oldAoiCells = getShipAoi(oldCellIndex);
         var newAoiCells = getShipAoi(newCellIndex);
         //notify sub of new aoi
-        var oldSubscribers = getAllSubscribersOfAoi(oldAoiCells);
+        // var oldSubscribers = getAllSubscribersOfAoi(oldAoiCells);
         var newSubscribers = getAllSubscribersOfAoi(newAoiCells);
-        var differentSubscribers = getDiffInSubscribers(oldSubscribers, newSubscribers);
-        for (var i = 0; i < differentSubscribers.length; i++) {
-            var id = differentSubscribers[i];
-            console.log("NOTIFIED ID: " + id);
+        // var differentSubscribers = getDiffInSubscribers(oldSubscribers, newSubscribers);
+        for (var i = 0; i < newSubscribers.length; i++) {
+            var id = newSubscribers[i];
+            //console.log("NOTIFIED ID: " + id);
             if (id !== pid) {
                 unicast(sockets[id], {
                     type:"fire",
