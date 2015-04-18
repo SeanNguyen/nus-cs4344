@@ -24,6 +24,7 @@ function MMOServer() {
     var players = {}; // Associative array for players, indexed via socket ID
     var shipAoiCaches = {};
     var cells = new Array(Config.GRID_WIDTH * Config.GRID_HEIGHT);
+    var aoiRequest = [];
 
     /*
      * private method: broadcast(msg)
@@ -289,6 +290,12 @@ function MMOServer() {
                             }
                             break;
                             
+                        case "aoi":
+                            var pid = players[conn.id].pid;
+                            aoiRequest.push(pid);
+                            console.log("AOI: " + aoiRequest);
+                            break;
+
                         default:
                             console.log("Unhandled " + message.type);
                     }
@@ -373,6 +380,19 @@ function MMOServer() {
                         dir: ships[pid].dir});
             }
         }
+
+        //send aoi data to client to visualize
+        for (var i = 0; i < aoiRequest.length; i++) {
+            if (aoiRequest[i] == pid) {
+                //console.log("AOI send to: " + pid);
+                unicast(sockets[pid], {
+                    type:"aoi",
+                    cellIndexes: newAoiCells
+                });
+                break;
+            }
+        };
+
     }
 
     var changeRocketCell = function(pid, oldCellIndex, newCellIndex) {
