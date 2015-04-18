@@ -98,6 +98,7 @@ function MMOServer() {
             var cellAfterMove = getCellIndexByXy(ships[i].x, ships[i].y);
             //if ship change cell then update group
             if (cellAfterMove !== cellBeforeMove) {
+                //console.log("PID: " + i + " OLD CELL: " + cellBeforeMove + " NEW CELL: " + cellAfterMove);
                 changeShipCell(i, cellBeforeMove, cellAfterMove);
             }
         }
@@ -120,49 +121,6 @@ function MMOServer() {
                         }
                     } 
                 }
-            }
-        }
-    }
-
-    //Grid system: 70x100 saved in 1D array
-    var preCalculateAoI = function() {
-        var i, j;
-        for (i = 0; i < Config.GRID_HEIGHT; i++) {
-            for (j = 0; j < Config.GRID_WIDTH; j++) {
-                //calculate
-                var nimbus = [];
-                var row, col;
-                //set area 5x5 around the considered grid
-                var halfSquare = Math.floor(Config.AOI_SQUARE_SIZE / 2);
-                for (row = i - halfSquare; row <= i + halfSquare; row++) {
-                    for (col = j - halfSquare; col <= j + halfSquare; col++) {
-                        if (row >= 0 && row < Config.GRID_HEIGHT && col >= 0 && col < Config.GRID_WIDTH) {
-                            nimbus.push({row: row, col: col});
-                        }
-                    }
-                }
-                //set area 3x31
-                var halfCrossHeight = Math.floor(Config.AOI_CROSS_SIZE1);
-                var halfCrossWidth = Math.floor(Config.AOI_CROSS_SIZE2);
-                for (row = i - halfCrossHeight; row <= i + halfCrossHeight; row++) {
-                    for (col = j - halfCrossWidth; col <= j + halfCrossWidth; col++) {
-                        if (row >= 0 && row < Config.GRID_HEIGHT && col >= 0 && col < Config.GRID_WIDTH) {
-                            nimbus.push({row: row, col: col});
-                        }
-                    }
-                }
-                //set area 31x3
-                var halfCrossHeight = Math.floor(Config.AOI_CROSS_SIZE2);
-                var halfCrossWidth = Math.floor(Config.AOI_CROSS_SIZE1);
-                for (row = i - halfCrossHeight; row <= i + halfCrossHeight; row++) {
-                    for (col = j - halfCrossWidth; col <= j + halfCrossWidth; col++) {
-                        if (row >= 0 && row < Config.GRID_HEIGHT && col >= 0 && col < Config.GRID_WIDTH) {
-                            nimbus.push({row: row, col: col});
-                        }
-                    }
-                }
-                //add to communicationGroups
-                nimbuses.push(nimbus);
             }
         }
     }
@@ -262,27 +220,29 @@ function MMOServer() {
                             var pid = players[conn.id].pid;
                             ships[pid].jumpTo(message.x, message.y);
                             ships[pid].turn(message.dir);
-                            broadcastUnless({
-                                type:"turn",
-                                id: pid,
-                                x: message.x, 
-                                y: message.y, 
-                                dir: message.dir
-                            }, pid);
+                            // broadcastUnless({
+                            //     type:"turn",
+                            //     id: pid,
+                            //     x: message.x, 
+                            //     y: message.y, 
+                            //     dir: message.dir
+                            // }, pid);
 
-                            // var cellIndex = getCellIndexByXy(message.x, message.y);
-                            // var cell = cells[cellIndex];
-                            // for (var id in cell) {
-                            //     if (id != undefined && id != 0 && id !== pid) {
-                            //         console.log(id);
-                            //         unicast(sockets[id], {
-                            //                 type:"turn",
-                            //                 id: id, 
-                            //                 x: ships[id].x, 
-                            //                 y: ships[id].y, 
-                            //                 dir: ships[id].dir});
-                            //     }
-                            // }
+                            var cellIndex = getCellIndexByXy(message.x, message.y);
+                            var subscribles = cells[cellIndex];
+                            for (var i = 0; i < subscribles.length; i++) {
+                                var id = subscribles[i];
+                                console.log(id);
+                                if (id !== pid) {
+                                    console.log(id);
+                                    unicast(sockets[id], {
+                                            type:"turn",
+                                            id: pid, 
+                                            x: message.x, 
+                                            y: message.y, 
+                                            dir: message.dir});
+                                }
+                            };
 
                             break;
 
@@ -354,33 +314,37 @@ function MMOServer() {
         for (var i = oldAoiCells.length - 1; i >= 0; i--) {
             var cellIndex = oldAoiCells[i];
             var cell = cells[cellIndex];
+            //console.log('OLD CELL BEFORE: ' + cell);
             for (var j = cell.length - 1; j >= 0; j--) {
                 if (cell[j] === pid) {
-                    delete cell[j];
+                    cell.splice(j, 1);
                 }
-            };
-        };
+            }
+            //console.log('OLD CELL AFTER: ' + cell + " LENGTH: " + cell.length);
+        }
 
         //sub new cell
         var newAoiCells = getShipAoi(newCellIndex);
         for (var i = newAoiCells.length - 1; i >= 0; i--) {
             var cellIndex = newAoiCells[i];
             var cell = cells[cellIndex];
+            //console.log('NEW CELL BEFORE: ' + cell);
             cell.push(pid);
-        };
+            //console.log('NEW CELL AFTER: ' + cell);
+        }
     }
 
     var getShipAoi = function (cellIndex) {
-        console.log("CELL INDEX: " + cellIndex);
+        //console.log("CELL INDEX: " + cellIndex);
         if (shipAoiCaches[cellIndex]) {
-            console.log(shipAoiCaches[cellIndex]);
+            //console.log(shipAoiCaches[cellIndex]);
             return shipAoiCaches[cellIndex];
         } else {
             var results = [];
             var row = getRowFromCellIndex(cellIndex);
-            console.log("ROW: " + row);
+            //console.log("ROW: " + row);
             var col = getColFromCellIndex(cellIndex);
-            console.log("COL: " + col);
+            //console.log("COL: " + col);
             var halfHeight = Math.floor(Config.AOI_CROSS_SIZE1 / 2);
             var halfWidth = Math.floor(Config.AOI_CROSS_SIZE2 / 2);
             var i,j;
@@ -402,7 +366,7 @@ function MMOServer() {
                 }
             }
             shipAoiCaches[cellIndex] = results;
-            console.log(shipAoiCaches[cellIndex]);
+            //console.log(shipAoiCaches[cellIndex]);
             return results;
         }
     }
