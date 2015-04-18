@@ -230,6 +230,7 @@ function Client(serverId) {
             var curX = ships[i].x;
             var curY = ships[i].y;
 
+            //Whenever a ship move from one region to another, close connection to current server and connect to the next server
             if (ships[i].dir == "left" || ships[i].dir == "right"){
                 if (((lastX < Config.WIDTH/2) && (Config.WIDTH/2 < curX)) || ((lastX > Config.WIDTH/2) && (Config.WIDTH/2 > curX))) {
                     var nextRm = nextRoom[serverIndex][ships[i].dir];
@@ -248,27 +249,7 @@ function Client(serverId) {
                     that.run();    
                 }
             }
-            // if(ships[i].moveToAnotherRegion()) {
 
-                // console.log("TATDA");
-                // var nextRm = nextRoom[serverIndex][ships[i].dir];
-                // serverIndex = nextRm;
-                // if(ships[i].x >= Config.WIDTH){
-                //     newPos = {x:ships[i].x-Config.WIDTH, y:ships[i].y};        
-                // }else if(ships[i].x <= 0){
-                //     newPos = {x:ships[i].x+Config.WIDTH, y:ships[i].y};
-                // }else if(ships[i].y >= Config.HEIGHT){
-                //     newPos = {x:ships[i].x, y:ships[i].y-Config.HEIGHT};
-                // }else if(ships[i].y <= 0){
-                //     newPos = {x:ships[i].x-Config.WIDTH, y:ships[i].y+Config.HEIGHT};
-                // }
-
-                // sock.close();
-                // that.run();    
-
-            // }else{
-               // ships[i].moveOneStep();
-            // }
         }
         
         // remove out-of-bound rockets
