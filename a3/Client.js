@@ -7,14 +7,20 @@
  *     <body onload="loadScript('', 'Client.js')"> 
  */
 "use strict"; 
-
-function Client() {
+var nextRoom = [{"up":3, "down":3, "left":1, "right":1},
+{"up":2, "down":2, "left":0, "right":0},
+{"up":1, "down":1, "left":3, "right":3},
+{"up":0, "down":0, "left":2, "right":2}];
+function Client(serverId) {
     var sock;          // socket to server
     var ships = {};    // associative array of ships, indexed by ship ID
     var rockets = {};  // associative array of rockets, indexed by rocket ID
     var myShip;        // my ship object  (same as ships[myId])
     var myId;          // My ship ID
-
+    var serverIndex = serverId;
+    var newPos;
+    var that = this;
+    var dd;
     /*
      * private method: sendToServer(msg)
      *
@@ -37,10 +43,11 @@ function Client() {
      *
      */
     this.run = function() {
-        sock = new SockJS('http://' + Config.SERVER_NAME + ':' + Config.PORT + '/space');
+        sock = new SockJS('http://' + Config.SERVER_NAME + ':' + (Config.PORT + serverIndex)+ '/space');
+        console.log("Connect to server: "+serverIndex);
         sock.onmessage = function(e) {
         var message = JSON.parse(e.data);
-            console.log(e.data);
+            
             switch (message.type) {
                 case "join": 
                     // Server agrees to let this client join.
@@ -132,7 +139,7 @@ function Client() {
 
         sock.onopen = function() {
             // When connection to server is open, ask to join.
-            sendToServer({type:"join"});
+            sendToServer({type:"join", position: newPos, dir: dd});
         }
 
 
@@ -140,7 +147,7 @@ function Client() {
         // arrow keys and space bar.
         var c = document.getElementById("canvas");
         c.height = Config.HEIGHT;
-        c.width= Config.WIDTH;canvas
+        c.width= Config.WIDTH;
 
         document.addEventListener("keydown", function(e) {
             if (myShip === undefined) {
@@ -157,6 +164,7 @@ function Client() {
                     x: myShip.x, 
                     y: myShip.y, 
                     dir:"left"});
+           
             } else if (e.keyCode == 38) { 
                 myShip.turn("up");
                 sendToServer({
@@ -202,8 +210,55 @@ function Client() {
      */
     var gameLoop = function() {
         for (var i in ships) {
+            //If Ships move out of bound, close socket, join next Room correspondingly
+            var lastX = ships[i].x;
+            var lastY = ships[i].y;
+
             ships[i].moveOneStep();
+            var curX = ships[i].x;
+            var curY = ships[i].y;
+
+            if (ships[i].dir == "left" || ships[i].dir == "right"){
+                if (((lastX < Config.WIDTH/2) && (Config.WIDTH/2 < curX)) || ((lastX > Config.WIDTH/2) && (Config.WIDTH/2 > curX))) {
+                    var nextRm = nextRoom[serverIndex][ships[i].dir];
+                    serverIndex = nextRm; 
+                    sock.close();
+                    newPos = {x:ships[i].x, y:ships[i].y, dir:ships[i].dir};
+                    that.run();    
+                }
+
+            }else if (ships[i].dir == "up" || ships[i].dir == "down"){
+                if (((lastY < Config.HEIGHT/2) && (Config.HEIGHT/2 < curY)) || ((lastY > Config.HEIGHT/2) && (Config.HEIGHT/2 > curY))) {
+                    var nextRm = nextRoom[serverIndex][ships[i].dir];
+                    serverIndex = nextRm; 
+                    sock.close();
+                    newPos = {x:ships[i].x, y:ships[i].y, dir:ships[i].dir};
+                    that.run();    
+                }
+            }
+            // if(ships[i].moveToAnotherRegion()) {
+
+                // console.log("TATDA");
+                // var nextRm = nextRoom[serverIndex][ships[i].dir];
+                // serverIndex = nextRm;
+                // if(ships[i].x >= Config.WIDTH){
+                //     newPos = {x:ships[i].x-Config.WIDTH, y:ships[i].y};        
+                // }else if(ships[i].x <= 0){
+                //     newPos = {x:ships[i].x+Config.WIDTH, y:ships[i].y};
+                // }else if(ships[i].y >= Config.HEIGHT){
+                //     newPos = {x:ships[i].x, y:ships[i].y-Config.HEIGHT};
+                // }else if(ships[i].y <= 0){
+                //     newPos = {x:ships[i].x-Config.WIDTH, y:ships[i].y+Config.HEIGHT};
+                // }
+
+                // sock.close();
+                // that.run();    
+
+            // }else{
+               // ships[i].moveOneStep();
+            // }
         }
+        
         // remove out-of-bound rockets
         for (var i in rockets) {
             rockets[i].moveOneStep();
@@ -285,7 +340,7 @@ function Client() {
     }
 }
 
-var c = new Client();
+var c = new Client(0);
 c.run()
 
 // vim:ts=4:sw=4:expandtab

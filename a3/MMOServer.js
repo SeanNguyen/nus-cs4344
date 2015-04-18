@@ -15,13 +15,15 @@ require(LIB_PATH + "Ship.js");
 require(LIB_PATH + "Rocket.js");
 require(LIB_PATH + "Player.js");
 
-function MMOServer() {
+var nextPID = 0;  // PID to assign to next connected player 
+
+function MMOServer(serverId) {
     // private Variables
-    var nextPID = 0;  // PID to assign to next connected player 
     var ships = {};   // Associative array for ships, indexed via player ID
     var rockets = {}; // Associative array for rockets, indexed via timestamp
     var sockets = {}; // Associative array for sockets, indexed via player ID
     var players = {}; // Associative array for players, indexed via socket ID
+    var serverIndex = serverId;
 
     /*
      * private method: broadcast(msg)
@@ -160,21 +162,30 @@ function MMOServer() {
                             // A client has requested to join. 
                             // Initialize a ship at random position
                             // and tell everyone.
+
                             var pid = players[conn.id].pid;
-                            var x = Math.floor(Math.random()*Config.WIDTH);
-                            var y = Math.floor(Math.random()*Config.HEIGHT);
                             var dir;
-                            var dice = Math.random();
-                            // pick a dir with equal probability
-                            if (dice < 0.25) {
-                                dir = "right";
-                            } else if (dice < 0.5) {
-                                dir = "left";
-                            } else if (dice < 0.75) {
-                                dir = "up";
-                            } else {
-                                dir = "down";
+                            if(message.position !== undefined && message.position !== null){
+                                var x = message.position.x;
+                                var y = message.position.y;
+                                dir = message.position.dir;
+                            }else{
+                                var x = Math.floor(Math.random()*Config.WIDTH/2);
+                                var y = Math.floor(Math.random()*Config.HEIGHT/2);    
+
+                                var dice = Math.random();
+                                // pick a dir with equal probability
+                                if (dice < 0.25) {
+                                    dir = "right";
+                                } else if (dice < 0.5) {
+                                    dir = "left";
+                                } else if (dice < 0.75) {
+                                    dir = "up";
+                                } else {
+                                    dir = "down";
+                                }
                             }
+
                             ships[pid] = new Ship();
                             ships[pid].init(x, y, dir);
                             broadcastUnless({
@@ -252,7 +263,7 @@ function MMOServer() {
             var app = express();
             var httpServer = http.createServer(app);
             sock.installHandlers(httpServer, {prefix:'/space'});
-            httpServer.listen(Config.PORT, Config.SERVER_NAME);
+            httpServer.listen(Config.PORT+serverIndex, Config.SERVER_NAME);
             app.use(express.static(__dirname));
             console.log("Server running on http://" + Config.SERVER_NAME + 
                     ":" + Config.PORT + "\n")
@@ -265,7 +276,10 @@ function MMOServer() {
 }
 
 // This will auto run after this script is loaded
-var server = new MMOServer();
-server.start();
+for(var i=0; i<4; i++){
+    var server = new MMOServer(i);
+    server.start();
+
+}
 
 // vim:ts=4:sw=4:expandtab
