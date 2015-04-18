@@ -102,6 +102,7 @@ function MMOServer() {
                 changeShipCell(i, cellBeforeMove, cellAfterMove);
             }
         }
+
         for (i in rockets) {
             var cellBeforeMove = getCellIndexByXy(rockets[i].x, rockets[i].y);
             rockets[i].moveOneStep();
@@ -112,9 +113,14 @@ function MMOServer() {
                 rockets[i] = null;
                 delete rockets[i];
             } else {
-                // For each ship, checks if this rocket has hit the ship
+                // For ship that expected to be intersted in this rocket, 
+                // checks if this rocket has hit the ship
                 // A rocket cannot hit its own ship.
+                var subscriberShips = cells[cellAfterMove];
+                //console.log("SHIP AROUND: " + subscriberShips);
                 for (j in ships) {
+                    var shipIndex = subscriberShips[j];
+                    //console.log(shipIndex);
                     if (rockets[i] != undefined && rockets[i].from != j) {
                         if (rockets[i].hasHit(ships[j])) {
                             // tell everyone there is a hit
@@ -236,9 +242,9 @@ function MMOServer() {
                             // }, pid);
 
                             var cellIndex = getCellIndexByXy(message.x, message.y);
-                            var subscribles = cells[cellIndex];
-                            for (var i = 0; i < subscribles.length; i++) {
-                                var id = subscribles[i];
+                            var subscribers = cells[cellIndex];
+                            for (var i = 0; i < subscribers.length; i++) {
+                                var id = subscribers[i];
                                 if (id !== pid) {
                                     unicast(sockets[id], {
                                             type:"turn",
@@ -269,9 +275,9 @@ function MMOServer() {
                             //     dir: message.dir
                             // });
                             var cellIndex = getCellIndexByXy(message.x, message.y);
-                            var subscribles = cells[cellIndex];
-                            for (var i = 0; i < subscribles.length; i++) {
-                                var id = subscribles[i];
+                            var subscribers = cells[cellIndex];
+                            for (var i = 0; i < subscribers.length; i++) {
+                                var id = subscribers[i];
                                 unicast(sockets[id], {
                                         type:"fire",
                                         ship: pid,
