@@ -276,7 +276,9 @@ function MMOServer(serverId) {
                             // A player has asked to fire a rocket.  Create
                             // a rocket, and tell everyone (including the player, 
                             // so that it knows the rocket ID).
+                            
                             var pid = players[conn.id].pid;
+                            console.log("Receive fire command from "+pid);
                             var r = new Rocket();
                             r.init(message.x, message.y, message.dir, pid);
                             var rocketId = new Date().getTime();

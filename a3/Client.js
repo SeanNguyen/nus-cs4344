@@ -259,7 +259,45 @@ function Client(serverId) {
                 rockets[i].y < 0 || rockets[i].y > Config.HEIGHT) {
                 rockets[i] = null;
                 delete rockets[i];
+            }else{
+                if (rockets[i].dir == "left" || rockets[i].dir == "right"){
+                    if (((lastX < Config.WIDTH/2) && (Config.WIDTH/2 < curX)) || ((lastX > Config.WIDTH/2) && (Config.WIDTH/2 > curX))) {
+                        var nextRm = nextRoom[serverIndex][rockets[i].dir];                        
+                        var firePkt = {type:"fire",
+                                        x: rockets[i].x, 
+                                        y: rockets[i].y, 
+                                        dir: rockets[i].dir};
+                        var tempSock = new SockJS('http://' + Config.SERVER_NAME + ':' + (Config.PORT + nextRm)+ '/space');
+                        tempSock.onopen = function() {
+                        // When connection to server is open, ask to fire.
+
+                            tempSock.send(JSON.stringify(firePkt));
+                            tempSock.close();
+
+                        }
+                    }
+
+                }else if (rockets[i].dir == "up" || rockets[i].dir == "down"){
+                    if (((lastY < Config.HEIGHT/2) && (Config.HEIGHT/2 < curY)) || ((lastY > Config.HEIGHT/2) && (Config.HEIGHT/2 > curY))) {
+                        var nextRm = nextRoom[serverIndex][rockets[i].dir];                        
+                        var firePkt = {type:"fire",
+                                        x: rockets[i].x, 
+                                        y: rockets[i].y, 
+                                        dir: rockets[i].dir};
+                        var tempSock = new SockJS('http://' + Config.SERVER_NAME + ':' + (Config.PORT + nextRm)+ '/space');
+                        
+                        tempSock.onopen = function() {
+                        // When connection to server is open, ask to fire.
+
+                            tempSock.send(JSON.stringify(firePkt));
+                            tempSock.close();
+
+                        }
+
+                    }
+                }
             }
+
         }
         render();
     }
