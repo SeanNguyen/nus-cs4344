@@ -17,10 +17,14 @@ function Client(serverId) {
     var rockets = {};  // associative array of rockets, indexed by rocket ID
     var myShip;        // my ship object  (same as ships[myId])
     var myId;          // My ship ID
+
     var serverIndex = serverId;
     var newPos;
     var that = this;
     var dd;
+
+    var aoi;            //AOI data
+
     /*
      * private method: sendToServer(msg)
      *
@@ -122,6 +126,10 @@ function Client(serverId) {
                         delete ships[id];
                     }
                     break;
+                case "aoi":
+                    // visualize AOI
+                    aoi = message.cellIndexes;
+                    break;
                 default:
                     console.log("error: undefined command " + message.type);
             }
@@ -139,7 +147,11 @@ function Client(serverId) {
 
         sock.onopen = function() {
             // When connection to server is open, ask to join.
+
             sendToServer({type:"join", position: newPos, dir: dd});
+            
+            sendToServer({type: "aoi"});
+
         }
 
 
@@ -290,22 +302,10 @@ function Client(serverId) {
         context.fillRect(0, 0, Config.WIDTH, Config.HEIGHT);
 
         //TEST
+        //draw aoi
+        drawAoi(context);
         //draw grid
-        var context = c.getContext('2d');
-        context.beginPath();
-        //10px per grid
-        var i;
-        var gridSize = 20;
-        for (i = 1; i < 70; i++) {
-            context.moveTo(0, i * gridSize);
-            context.lineTo(Config.WIDTH, i * gridSize);
-        }
-        for (i = 1; i < 100; i++) {
-            context.moveTo(i * gridSize, 0);
-            context.lineTo(i * gridSize, Config.HEIGHT);
-        }
-        context.strokeStyle="#d3edce";
-        context.stroke();
+        drawGrid(context);
 
         // Draw the ship
         for (var i in ships) {
@@ -337,6 +337,51 @@ function Client(serverId) {
      */
     var showMessage = function(location, msg) {
         document.getElementById(location).innerHTML = msg; 
+    }
+
+    var drawAoi = function (context) {
+        if (!aoi) {
+            return;
+        }
+        var cellSize = Config.WIDTH / Config.GRID_WIDTH;
+        context.fillStyle = "#b8dbd3";
+        for (var i = 0; i < aoi.length; i++) {
+            var cellIndex = aoi[i];
+            var row = getRowFromCellIndex(cellIndex);
+            var col = getColFromCellIndex(cellIndex);
+            context.beginPath();
+            context.moveTo(col * cellSize, row * cellSize);
+            context.lineTo(col * cellSize, row * cellSize + cellSize);
+            context.lineTo(col * cellSize + cellSize, row * cellSize + cellSize);
+            context.lineTo(col * cellSize + cellSize, row * cellSize);
+            context.lineTo(col * cellSize, row * cellSize);
+            context.closePath();
+            context.fill();
+        };
+    }
+
+    var drawGrid = function (context) {
+        context.beginPath();
+        //10px per grid
+        var i;
+        for (i = 1; i < Config.GRID_WIDTH; i++) {
+            context.moveTo(0, i * Config.WIDTH / Config.GRID_WIDTH);
+            context.lineTo(Config.WIDTH, i * Config.WIDTH / Config.GRID_WIDTH);
+        }
+        for (i = 1; i < 100; i++) {
+            context.moveTo(i * Config.HEIGHT / Config.GRID_HEIGHT, 0);
+            context.lineTo(i * Config.HEIGHT / Config.GRID_HEIGHT, Config.HEIGHT);
+        }
+        context.strokeStyle="#468499";
+        context.stroke();
+    }
+
+    var getRowFromCellIndex = function(cellIndex) {
+        return Math.floor(cellIndex / Config.GRID_WIDTH);
+    }
+
+    var getColFromCellIndex = function(cellIndex) {
+        return cellIndex % Config.GRID_WIDTH;
     }
 }
 

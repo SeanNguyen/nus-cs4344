@@ -23,7 +23,13 @@ function MMOServer(serverId) {
     var rockets = {}; // Associative array for rockets, indexed via timestamp
     var sockets = {}; // Associative array for sockets, indexed via player ID
     var players = {}; // Associative array for players, indexed via socket ID
+
     var serverIndex = serverId;
+
+    var shipAoiCaches = {};
+    var cells = new Array(Config.GRID_WIDTH * Config.GRID_HEIGHT);
+    var aoiRequest = [];
+
 
     /*
      * private method: broadcast(msg)
@@ -93,19 +99,34 @@ function MMOServer(serverId) {
         var i;
         var  j;
         for (i in ships) {
+            var cellBeforeMove = getCellIndexByXy(ships[i].x, ships[i].y);
             ships[i].moveOneStep();
+            var cellAfterMove = getCellIndexByXy(ships[i].x, ships[i].y);
+            //if ship change cell then update group
+            if (cellAfterMove !== cellBeforeMove) {
+                //console.log("PID: " + i + " OLD CELL: " + cellBeforeMove + " NEW CELL: " + cellAfterMove);
+                changeShipCell(i, cellBeforeMove, cellAfterMove);
+            }
         }
+
         for (i in rockets) {
+            var cellBeforeMove = getCellIndexByXy(rockets[i].x, rockets[i].y);
             rockets[i].moveOneStep();
+            var cellAfterMove = getCellIndexByXy(rockets[i].x, rockets[i].y);
             // remove out of bounds rocket
             if (rockets[i].x < 0 || rockets[i].x > Config.WIDTH ||
                 rockets[i].y < 0 || rockets[i].y > Config.HEIGHT) {
                 rockets[i] = null;
                 delete rockets[i];
             } else {
-                // For each ship, checks if this rocket has hit the ship
+                // For ship that expected to be intersted in this rocket, 
+                // checks if this rocket has hit the ship
                 // A rocket cannot hit its own ship.
+                var subscriberShips = cells[cellAfterMove];
+                //console.log("SHIP AROUND: " + subscriberShips);
                 for (j in ships) {
+                    var shipIndex = subscriberShips[j];
+                    //console.log(shipIndex);
                     if (rockets[i] != undefined && rockets[i].from != j) {
                         if (rockets[i].hasHit(ships[j])) {
                             // tell everyone there is a hit
@@ -113,6 +134,11 @@ function MMOServer(serverId) {
                             delete rockets[i];
                         }
                     } 
+                }
+                //if rocket change cell then update group
+                if (cellAfterMove !== cellBeforeMove && rockets[i]) {
+                    //console.log("PID: " + i + " OLD CELL: " + cellBeforeMove + " NEW CELL: " + cellAfterMove);
+                    changeRocketCell(i, cellBeforeMove, cellAfterMove);
                 }
             }
         }
@@ -127,6 +153,7 @@ function MMOServer(serverId) {
      */
     this.start = function () {
         try {
+            initCells();
             var express = require('express');
             var http = require('http');
             var sockjs = require('sockjs');
@@ -217,17 +244,32 @@ function MMOServer(serverId) {
                             break;
 
                         case "turn":
-                            // A player has turned.  Tell everyone else.
+                            // A player has turned. Tell all the one who care
                             var pid = players[conn.id].pid;
                             ships[pid].jumpTo(message.x, message.y);
                             ships[pid].turn(message.dir);
-                            broadcastUnless({
-                                type:"turn",
-                                id: pid,
-                                x: message.x, 
-                                y: message.y, 
-                                dir: message.dir
-                            }, pid);
+                            // broadcastUnless({
+                            //     type:"turn",
+                            //     id: pid,
+                            //     x: message.x, 
+                            //     y: message.y, 
+                            //     dir: message.dir
+                            // }, pid);
+
+                            var cellIndex = getCellIndexByXy(message.x, message.y);
+                            var subscribers = cells[cellIndex];
+                            for (var i = 0; i < subscribers.length; i++) {
+                                var id = subscribers[i];
+                                if (id !== pid) {
+                                    unicast(sockets[id], {
+                                            type:"turn",
+                                            id: pid, 
+                                            x: message.x, 
+                                            y: message.y, 
+                                            dir: message.dir});
+                                }
+                            };
+
                             break;
 
                         case "fire":
@@ -239,16 +281,35 @@ function MMOServer(serverId) {
                             r.init(message.x, message.y, message.dir, pid);
                             var rocketId = new Date().getTime();
                             rockets[rocketId] = r;
-                            broadcast({
-                                type:"fire",
-                                ship: pid,
-                                rocket: rocketId,
-                                x: message.x,
-                                y: message.y,
-                                dir: message.dir
-                            });
+                            // broadcast({
+                            //     type:"fire",
+                            //     ship: pid,
+                            //     rocket: rocketId,
+                            //     x: message.x,
+                            //     y: message.y,
+                            //     dir: message.dir
+                            // });
+                            var cellIndex = getCellIndexByXy(message.x, message.y);
+                            var subscribers = cells[cellIndex];
+                            for (var i = 0; i < subscribers.length; i++) {
+                                var id = subscribers[i];
+                                unicast(sockets[id], {
+                                        type:"fire",
+                                        ship: pid,
+                                        rocket: rocketId,
+                                        x: message.x,
+                                        y: message.y,
+                                        dir: message.dir
+                                    });
+                            }
                             break;
                             
+                        //case "aoi":
+                        //   var pid = players[conn.id].pid;
+                        //    aoiRequest.push(pid);
+                        //   console.log("AOI: " + aoiRequest);
+                        //    break;
+
                         default:
                             console.log("Unhandled " + message.type);
                     }
@@ -273,6 +334,195 @@ function MMOServer(serverId) {
             console.log("Error: " + e);
         }
     }
+
+    //helper methods
+    var initCells = function() {
+        for (var i = cells.length - 1; i >= 0; i--) {
+            cells[i] = [];
+        };
+    }
+
+    var getCellIndexByXy = function (x, y) {
+        var row = Math.floor(y / (Config.HEIGHT / Config.GRID_HEIGHT));
+        var col = Math.floor(x / (Config.WIDTH / Config.GRID_WIDTH));
+        return getCellIndex(row, col);
+    }
+
+    var getCellIndex = function (row, col) {
+        return row * Config.GRID_WIDTH + col;
+    }
+
+    var changeShipCell = function(pid, oldCellIndex, newCellIndex) {
+        //unsub old cell
+        //check if is there pre-calculated data for AOI
+        var oldAoiCells = getShipAoi(oldCellIndex);
+        for (var i = oldAoiCells.length - 1; i >= 0; i--) {
+            var cellIndex = oldAoiCells[i];
+            var cell = cells[cellIndex];
+            //console.log('OLD CELL BEFORE: ' + cell);
+            for (var j = cell.length - 1; j >= 0; j--) {
+                if (cell[j] === pid) {
+                    cell.splice(j, 1);
+                }
+            }
+            //console.log('OLD CELL AFTER: ' + cell + " LENGTH: " + cell.length);
+        }
+
+        //sub new cell
+        var newAoiCells = getShipAoi(newCellIndex);
+        for (var i = newAoiCells.length - 1; i >= 0; i--) {
+            var cellIndex = newAoiCells[i];
+            var cell = cells[cellIndex];
+            //console.log('NEW CELL BEFORE: ' + cell);
+            cell.push(pid);
+            //console.log('NEW CELL AFTER: ' + cell);
+        }
+
+        //notify sub of new aoi
+        //var oldSubscribers = getAllSubscribersOfAoi(oldAoiCells);
+         var newSubscribers = getAllSubscribersOfAoi(newAoiCells);
+        // var differentSubscribers = getDiffInSubscribers(oldSubscribers, newSubscribers);
+        for (var i = 0; i < newSubscribers.length; i++) {
+            var id = newSubscribers[i];
+            if (id !== pid) {
+                unicast(sockets[id], {
+                    type:"turn",
+                    id: pid, 
+                    x: ships[pid].x, 
+                    y: ships[pid].y, 
+                    dir: ships[pid].dir});
+            }
+        }
+
+        //send aoi data to client to visualize
+
+        var aoiToSend = [];
+        for (var i = 0; i < cells.length; i++) {
+            if (cells[i].length > 0) {
+                aoiToSend.push(i);
+            }
+        };
+        for (var i = 0; i < aoiRequest.length; i++) {
+            if (aoiRequest[i] == pid) {
+                //console.log("AOI send to: " + pid);
+                unicast(sockets[pid], {
+                    type:"aoi",
+                    cellIndexes: aoiToSend
+                });
+                break;
+            }
+        };
+
+    }
+
+    var changeRocketCell = function(pid, oldCellIndex, newCellIndex) {
+        var oldAoiCells = getShipAoi(oldCellIndex);
+        var newAoiCells = getShipAoi(newCellIndex);
+        //notify sub of new aoi
+        // var oldSubscribers = getAllSubscribersOfAoi(oldAoiCells);
+        var newSubscribers = getAllSubscribersOfAoi(newAoiCells);
+        // var differentSubscribers = getDiffInSubscribers(oldSubscribers, newSubscribers);
+        for (var i = 0; i < newSubscribers.length; i++) {
+            var id = newSubscribers[i];
+            //console.log("NOTIFIED ID: " + id);
+            if (id !== pid) {
+                unicast(sockets[id], {
+                    type:"fire",
+                    ship: rockets[pid].from,
+                    rocket: pid,
+                    x: rockets[pid].x,
+                    y: rockets[pid].y,
+                    dir: rockets[pid].dir
+                });
+            }
+        }
+    }
+
+    var getShipAoi = function (cellIndex) {
+        //console.log("CELL INDEX: " + cellIndex);
+        if (shipAoiCaches[cellIndex]) {
+            //console.log(shipAoiCaches[cellIndex]);
+            return shipAoiCaches[cellIndex];
+        } else {
+            var results = [];
+            var row = getRowFromCellIndex(cellIndex);
+            //console.log("ROW: " + row);
+            var col = getColFromCellIndex(cellIndex);
+            //console.log("COL: " + col);
+            var halfHeight = Math.floor(Config.AOI_CROSS_SIZE1 / 2);
+            var halfWidth = Math.floor(Config.AOI_CROSS_SIZE2 / 2);
+            var i,j;
+            for (i = row - halfHeight; i <= row + halfHeight; i++) {
+                for (j = col - halfWidth; j <= col + halfWidth; j++) {
+                    if (i >= 0 && i < Config.GRID_HEIGHT && j >= 0 && j < Config.GRID_WIDTH) {
+                        results.push(getCellIndex(i, j));
+                    }
+                }
+            }
+            halfHeight = Math.floor(Config.AOI_CROSS_SIZE2 / 2);
+            halfWidth = Math.floor(Config.AOI_CROSS_SIZE1 / 2);
+            for (i = row - halfHeight; i <= row + halfHeight; i++) {
+                for (j = col - halfWidth; j <= col + halfWidth; j++) {
+                    if (i >= 0 && i < Config.GRID_HEIGHT && j >= 0 && j < Config.GRID_WIDTH
+                        && (i < row - halfWidth || i > row + halfWidth || j < col - halfHeight || j > col + halfHeight)) {
+                        results.push(getCellIndex(i, j));
+                    }
+                }
+            }
+            shipAoiCaches[cellIndex] = results;
+            //console.log(shipAoiCaches[cellIndex]);
+            return results;
+        }
+    }
+
+    var getRowFromCellIndex = function(cellIndex) {
+        return Math.floor(cellIndex / Config.GRID_WIDTH);
+    }
+
+    var getColFromCellIndex = function(cellIndex) {
+        return cellIndex % Config.GRID_WIDTH;
+    }
+
+    var getAllSubscribersOfAoi = function(cellIndexes) {
+        var result = [];
+        for (var i = 0; i < cellIndexes.length; i++) {
+            var cellIndex = cellIndexes[i];
+            var cell = cells[cellIndex];
+            result = arrayUnique(result.concat(cell));
+        };
+        return result;
+    }
+
+    var getDiffInSubscribers = function(oldSubs, newSubs) {
+        //console.log("OLD SUB: " + oldSubs);
+        //console.log("NEW SUB: " + newSubs);
+        var result = [];
+        for (var i = 0; i < newSubs.length; i++) {
+            var isDiff = true;
+            for (var j = 0; j < oldSubs.length; j++) {
+                if (oldSubs[j] === newSubs[i]) {
+                    isDiff = false;
+                    break;
+                }
+            };
+            if (isDiff) {
+                result.push(newSubs[i]);
+            }
+        };
+        //console.log("DIFF: " + result);
+        return result;
+    }
+
+    var arrayUnique = function(array) {
+        var a = array.concat();
+        for(var i=0; i<a.length; ++i) {
+            for(var j=i+1; j<a.length; ++j) {
+                if(a[i] === a[j])
+                    a.splice(j--, 1);
+            }
+        }
+        return a;
+    };
 }
 
 // This will auto run after this script is loaded
