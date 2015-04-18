@@ -150,7 +150,7 @@ function Client(serverId) {
 
             sendToServer({type:"join", position: newPos, dir: dd});
             
-            sendToServer({type: "aoi"});
+            //sendToServer({type: "aoi"});
 
         }
 
