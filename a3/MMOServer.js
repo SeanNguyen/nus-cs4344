@@ -290,11 +290,11 @@ function MMOServer() {
                             }
                             break;
                             
-                        case "aoi":
-                            var pid = players[conn.id].pid;
-                            aoiRequest.push(pid);
-                            console.log("AOI: " + aoiRequest);
-                            break;
+                        //case "aoi":
+                        //   var pid = players[conn.id].pid;
+                        //    aoiRequest.push(pid);
+                        //   console.log("AOI: " + aoiRequest);
+                        //    break;
 
                         default:
                             console.log("Unhandled " + message.type);
